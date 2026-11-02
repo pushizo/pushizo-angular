@@ -13,17 +13,6 @@
 
 **Pushizo for Angular** — Angular providers for the Pushizo Web SDK. providePushizo (standalone) or PushizoModule.forRoot (NgModule) initializes the shared SDK once in the browser and never on the server; PushizoService exposes permission and push subscription state as signals and observables. Angular 17 and later.
 
-> **Status:** @pushizo/angular 0.1.0 is not on npm yet; until then you can install the release archive from this repository.<br>
-> **Durum:** @pushizo/angular 0.1.0 henüz npm'de değil; o zamana kadar bu deponun sürüm arşivinden kurabilirsiniz.
-
-**Install from GitHub until then · O zamana kadar GitHub'dan kurulum:**
-
-```bash
-npm install @pushizo/web --allow-remote=root https://github.com/pushizo/pushizo-angular/releases/download/v0.1.0/pushizo-angular-0.1.0.tgz
-```
-
-**After publication · Yayından sonra:**
-
 ```bash
 npm install @pushizo/angular @pushizo/web
 ```
