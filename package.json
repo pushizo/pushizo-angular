@@ -1,0 +1,64 @@
+{
+  "name": "@pushizo/angular",
+  "version": "0.1.0",
+  "description": "Pushizo Angular sağlayıcıları: providePushizo, PushizoModule.forRoot ve Signal/Observable durumlu PushizoService (@pushizo/web üzerine)",
+  "license": "MIT",
+  "homepage": "https://docs.pushizo.com/docs/integrations/angular",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pushizo/pushizo-angular.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pushizo/pushizo-angular/issues",
+    "email": "support@pushizo.com"
+  },
+  "keywords": [
+    "pushizo",
+    "angular",
+    "signals",
+    "rxjs",
+    "push",
+    "notifications",
+    "web-push"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && ngc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0",
+    "@pushizo/web": "^0.1.0",
+    "rxjs": "^7.4.0"
+  },
+  "devDependencies": {
+    "@angular/common": "21.2.25",
+    "@angular/compiler": "21.2.25",
+    "@angular/compiler-cli": "21.2.25",
+    "@angular/core": "21.2.25",
+    "@pushizo/web": "^0.1.0",
+    "happy-dom": "^21.0.4",
+    "rxjs": "^7.8.2"
+  },
+  "sideEffects": false
+}
