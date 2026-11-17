@@ -6,4 +6,5 @@
  */
 export { PUSHIZO_OPTIONS, PushizoService } from './pushizo.service.js';
 export { providePushizo, PushizoModule } from './providers.js';
+export { PushizoContentCardsDirective } from './content-cards.directive.js';
 export type { PushizoState } from './binding.js';

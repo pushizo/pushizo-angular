@@ -111,6 +111,13 @@ inject(PushizoService)
 | `ready`, `error`, `permission`, `pushSubscription`, `state` | Salt okunur Signal'ler. |
 | `state$`, `permission$`, `pushSubscription$` | Observable'lar (son değeri hemen verir). |
 | `notificationClick$` | Bildirim tıklamaları; abonelik bitince dinleyici kaldırılır. |
+| `notificationForeground$` | Ön plan bildirimleri (`event.preventDefault()`); abonelik bitince `removeForegroundLifecycleListener`. |
+| `featureFlag(key, defaultValue?)`, `featureFlagValue(key, defaultValue?)` | Özellik bayrağı Signal'leri; bayraklar yenilenince güncellenir. |
+| `featureFlagsChange$`, `inboxChange$` | Bayrak yenileme ve bildirim kutusu değişim akışları; abonelik bitince gözlemci `removeObserver` ile kaldırılır. |
+| `inboxUnreadCount`, `refreshInboxUnreadCount()` | Okunmamış sayısı Signal'i (bilinmiyorsa `null`) ve sunucudan okuma. |
+| `renderContentCards(target, options?)` | Hazır içerik kartı akışını öğeye çizer (`ContentCards.render`); tutamaç `refresh()` / `destroy()`. |
+| `[pushizoContentCards]` (`PushizoContentCardsDirective`) | Aynı görünümün standalone yönergesi: `<div pushizoContentCards [pushizoContentCardsOptions]="…">`; yok edilince kaldırılır. |
+| `search(text, options?)` | Site araması (`Search.query`). |
 | `PUSHIZO_OPTIONS` | Verilen init seçeneklerinin enjeksiyon belirteci. |
 
 `init` hatası fırlatılmaz, `error` sinyaline yazılır.

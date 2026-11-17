@@ -3,19 +3,33 @@
 import '@angular/compiler';
 import {
   createEnvironmentInjector,
+  DestroyRef,
+  ElementRef,
   Injector,
   NgZone,
   PLATFORM_ID,
+  runInInjectionContext,
   type EnvironmentInjector,
   type EnvironmentProviders,
   type Provider,
 } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as web from '@pushizo/web';
-import type { NotificationClickEvent, PermissionState } from '@pushizo/web';
+import type {
+  ForegroundLifecycleEvent,
+  InboxChangeEvent,
+  NotificationClickEvent,
+  PermissionState,
+} from '@pushizo/web';
 import { getBinding, resetBinding } from '../binding.js';
-import { providePushizo, PUSHIZO_OPTIONS, PushizoModule, PushizoService } from '../index.js';
-import { CLICK, type FakeSdk } from './fake-sdk.js';
+import {
+  providePushizo,
+  PUSHIZO_OPTIONS,
+  PushizoContentCardsDirective,
+  PushizoModule,
+  PushizoService,
+} from '../index.js';
+import { CLICK, FOREGROUND, type FakeSdk } from './fake-sdk.js';
 
 vi.mock('@pushizo/web', async () => {
   const { createFakeSdk } = await import('./fake-sdk.js');
@@ -137,6 +151,113 @@ describe('@pushizo/angular', () => {
     expect(fake.counts()).toEqual({ permission: 0, subscription: 0, click: 0 });
     expect(service.ready()).toBe(false);
     expect(service.permission()).toBe('default');
+  });
+
+  it('ön plan, bayrak ve kutu akışları abonelik bitince remove* ile temizlenir', () => {
+    const service = create([providePushizo(OPTIONS)]).get(PushizoService);
+    // Servisin kendi bayrak ve kutu gözlemcileri (Signal'ler için) zaten bağlıdır.
+    expect(fake.extraCounts()).toMatchObject({ foreground: 0, flags: 1, inbox: 1 });
+    const foreground: ForegroundLifecycleEvent[] = [];
+    const inbox: InboxChangeEvent[] = [];
+    const flags = vi.fn();
+    const subs = [
+      service.notificationForeground$.subscribe((e) => foreground.push(e)),
+      service.featureFlagsChange$.subscribe(flags),
+      service.inboxChange$.subscribe((e) => inbox.push(e)),
+    ];
+    expect(fake.extraCounts()).toMatchObject({ foreground: 1, flags: 2, inbox: 2 });
+    fake.foreground(FOREGROUND);
+    fake.setFlags({ a: { enabled: true } });
+    fake.inbox({ type: 'count', unreadCount: 4 });
+    expect(foreground).toEqual([FOREGROUND]);
+    expect(flags).toHaveBeenCalledTimes(1);
+    expect(inbox).toEqual([{ type: 'count', unreadCount: 4 }]);
+    for (const sub of subs) sub.unsubscribe();
+    expect(fake.extraCounts()).toMatchObject({ foreground: 0, flags: 1, inbox: 1 });
+    expect(fake.sdk.Notifications.removeForegroundLifecycleListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('featureFlag sinyali bayrak yenilenince güncellenir; enjektör yok edilince gözlemciler kaldırılır', async () => {
+    const injector = create([providePushizo(OPTIONS)]);
+    const service = injector.get(PushizoService);
+    const enabled = service.featureFlag('new_checkout');
+    const limit = service.featureFlagValue<number>('limit', 5);
+    fake.setFlags({ new_checkout: { enabled: true }, limit: { enabled: true, value: 20 } });
+    // SDK hazır olana kadar varsayılan değer döner.
+    expect(enabled()).toBe(false);
+    await service.init();
+    await flush();
+    expect(enabled()).toBe(true);
+    expect(limit()).toBe(20);
+    fake.setFlags({});
+    expect(enabled()).toBe(false);
+    expect(limit()).toBe(5);
+    injector.destroy();
+    expect(fake.extraCounts()).toMatchObject({ flags: 0, inbox: 0 });
+    expect(fake.sdk.FeatureFlags.removeObserver).toHaveBeenCalledTimes(1);
+    expect(fake.sdk.Inbox.removeObserver).toHaveBeenCalledTimes(1);
+  });
+
+  it('inboxUnreadCount sinyali olaylarla ve refreshInboxUnreadCount ile güncellenir', async () => {
+    const service = create([providePushizo(OPTIONS)]).get(PushizoService);
+    expect(service.inboxUnreadCount()).toBeNull();
+    fake.setUnread(3);
+    expect(await service.refreshInboxUnreadCount()).toBe(3);
+    expect(service.inboxUnreadCount()).toBe(3);
+    fake.inbox({ type: 'read', itemId: 'in_1', unreadCount: 2 });
+    expect(service.inboxUnreadCount()).toBe(2);
+  });
+
+  it('search ve renderContentCards web SDK çağrılarına gider', async () => {
+    const service = create([providePushizo(OPTIONS)]).get(PushizoService);
+    const response = await service.search('fiyat', { limit: 3 });
+    expect(fake.sdk.Search.query).toHaveBeenCalledWith('fiyat', { limit: 3 });
+    expect(response.query_id).toBe('q_fiyat');
+    const host = document.createElement('div');
+    const view = await service.renderContentCards(host, { theme: 'dark' });
+    expect(fake.sdk.ContentCards.render).toHaveBeenCalledWith(host, { theme: 'dark' });
+    expect(fake.extraCounts().cardViews).toBe(1);
+    view.destroy();
+    expect(fake.extraCounts().cardViews).toBe(0);
+  });
+
+  it('pushizoContentCards yönergesi SDK hazır olunca görünümü kurar, yok edilince kaldırır', async () => {
+    const host = document.createElement('div');
+    const injector = create([
+      providePushizo(OPTIONS),
+      { provide: ElementRef, useValue: new ElementRef(host) },
+    ]);
+    const directive = runInInjectionContext(injector, () => new PushizoContentCardsDirective());
+    directive.options = { theme: 'dark' };
+    directive.ngOnInit();
+    await flush();
+    await flush();
+    expect(fake.sdk.ContentCards.render).toHaveBeenCalledWith(host, { theme: 'dark' });
+    expect(fake.extraCounts().cardViews).toBe(1);
+    await directive.refresh();
+    expect(injector.get(DestroyRef)).toBeDefined();
+    injector.destroy();
+    expect(fake.extraCounts().cardViews).toBe(0);
+  });
+
+  it('sunucu platformunda yeni akışlar ve yönerge web SDK çağrısı yapmaz', async () => {
+    const host = {} as Element;
+    const injector = create(
+      [providePushizo(OPTIONS), { provide: ElementRef, useValue: new ElementRef(host) }],
+      'server',
+    );
+    const service = injector.get(PushizoService);
+    service.notificationForeground$.subscribe().unsubscribe();
+    service.featureFlagsChange$.subscribe().unsubscribe();
+    service.inboxChange$.subscribe().unsubscribe();
+    const directive = runInInjectionContext(injector, () => new PushizoContentCardsDirective());
+    directive.ngOnInit();
+    await flush();
+    expect(fake.extraCounts()).toEqual({ foreground: 0, flags: 0, inbox: 0, cardViews: 0 });
+    expect(service.featureFlag('a', true)()).toBe(true);
+    expect(await service.refreshInboxUnreadCount()).toBeNull();
+    await expect(service.renderContentCards(host)).rejects.toThrow('tarayıcıda');
+    expect(fake.sdk.ContentCards.render).not.toHaveBeenCalled();
   });
 
   it('seçeneksiz providePushizo açıklayıcı hata verir', () => {
